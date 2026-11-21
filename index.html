@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no"
+    />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#222222" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <title>Сапёр</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #222;
+        color: #eee;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        padding: 12px;
+      }
+      .bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .box {
+        background: #111;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font: bold 20px monospace;
+        min-width: 70px;
+        text-align: center;
+      }
+      select,
+      button {
+        font-size: 16px;
+        padding: 4px 10px;
+      }
+      #wrap {
+        max-width: 100%;
+        overflow: auto;
+      }
+      canvas {
+        display: block;
+        touch-action: manipulation;
+      }
+      #status {
+        margin-top: 8px;
+        min-height: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <select id="level">
+        <option value="easy">Новичок 9×9, 10 мин</option>
+        <option value="medium">Любитель 16×16, 40 мин</option>
+        <option value="hard">Профи 30×16, 99 мин</option>
+      </select>
+      <span class="box" id="mines">💣 000</span>
+      <button id="restart">🙂 Заново</button>
+      <span class="box" id="timer">⏱ 000</span>
+    </div>
+    <div id="wrap"><canvas id="c"></canvas></div>
+    <div id="status"></div>
+
+    <script type="module">
+      import init, { Minesweeper, GameStatus } from './pkg/minesweeper.js';
+
+      if ('serviceWorker' in navigator)
+        navigator.serviceWorker.register('./sw.js');
+
+      await init();
+
+      const LEVELS = {
+        easy: { w: 9, h: 9, m: 10 },
+        medium: { w: 16, h: 16, m: 40 },
+        hard: { w: 30, h: 16, m: 99 }
+      };
+      const COLORS = [
+        '',
+        '#00f',
+        '#080',
+        '#f00',
+        '#008',
+        '#800',
+        '#088',
+        '#000',
+        '#888'
+      ];
+
+      const canvas = document.getElementById('c');
+      const ctx = canvas.getContext('2d');
+      const levelSel = document.getElementById('level');
+      const minesEl = document.getElementById('mines');
+      const timerEl = document.getElementById('timer');
+      const statusEl = document.getElementById('status');
+
+      let game = null,
+        W,
+        H,
+        SIZE,
+        level;
+
+      let timerId = null,
+        startTime = 0,
+        elapsed = 0;
+
+      function pad(n) {
+        return String(Math.min(999, Math.floor(n))).padStart(3, '0');
+      }
+
+      function tick() {
+        if (timerId !== null) elapsed = (performance.now() - startTime) / 1000;
+        timerEl.textContent = '⏱ ' + pad(elapsed);
+      }
+
+      function stopTimer() {
+        if (timerId !== null) {
+          clearInterval(timerId);
+          timerId = null;
+        }
+      }
+
+      function resetTimer() {
+        stopTimer();
+        elapsed = 0;
+        tick();
+      }
+
+      function getBest() {
+        try {
+          return parseFloat(localStorage.getItem('ms-best-' + level));
+        } catch {
+          return NaN;
+        }
+      }
+      function saveBest(t) {
+        try {
+          localStorage.setItem('ms-best-' + level, String(t));
+        } catch {}
+      }
+
+      function newGame() {
+        if (game) game.free();
+        level = levelSel.value;
+        const L = LEVELS[level];
+        W = L.w;
+        H = L.h;
+        game = new Minesweeper(W, H, L.m, Date.now() >>> 0);
+
+        SIZE = Math.max(
+          20,
+          Math.min(32, Math.floor((window.innerWidth - 24) / W))
+        );
+        canvas.width = W * SIZE;
+        canvas.height = H * SIZE;
+
+        resetTimer();
+        sync();
+        try {
+          localStorage.setItem('ms-level', level);
+        } catch {}
+      }
+
+      function sync() {
+        const st = game.status();
+
+        if (st === GameStatus.Playing && timerId === null) {
+          startTime = performance.now();
+          timerId = setInterval(tick, 100);
+        }
+
+        let msg = '';
+        if (st === GameStatus.Won || st === GameStatus.Lost) {
+          if (timerId !== null) {
+            elapsed = (performance.now() - startTime) / 1000;
+            stopTimer();
+            if (st === GameStatus.Won) {
+              const best = getBest();
+              if (isNaN(best) || elapsed < best) {
+                saveBest(elapsed);
+                msg = `🎉 Победа за ${elapsed.toFixed(1)} с. Новый рекорд!`;
+              } else {
+                msg = `🎉 Победа за ${elapsed.toFixed(1)} с. Рекорд: ${best.toFixed(1)} с`;
+              }
+            } else {
+              msg = '💥 Проигрыш';
+            }
+            statusEl.textContent = msg;
+          }
+        } else {
+          const best = getBest();
+          statusEl.textContent = isNaN(best)
+            ? ''
+            : `Рекорд: ${best.toFixed(1)} с`;
+        }
+
+        const left = game.mines_left();
+        minesEl.textContent =
+          '💣 ' +
+          (left < 0
+            ? '-' + String(-left).padStart(2, '0')
+            : String(left).padStart(3, '0'));
+        tick();
+        draw();
+      }
+
+      function draw() {
+        const view = game.view();
+        ctx.font = `bold ${Math.floor(SIZE * 0.65)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const v = view[y * W + x];
+            const px = x * SIZE,
+              py = y * SIZE;
+
+            ctx.fillStyle = v <= 8 ? '#ddd' : '#999';
+            if (v === 12) ctx.fillStyle = '#f66';
+            ctx.fillRect(px, py, SIZE - 1, SIZE - 1);
+
+            let text = '',
+              color = '#000';
+            if (v >= 1 && v <= 8) {
+              text = v;
+              color = COLORS[v];
+            } else if (v === 10) text = '🚩';
+            else if (v === 11 || v === 12) text = '💣';
+            else if (v === 13) text = '❌';
+
+            if (text !== '') {
+              ctx.fillStyle = color;
+              ctx.fillText(text, px + SIZE / 2, py + SIZE / 2 + 1);
+            }
+          }
+        }
+      }
+
+      function cellFromEvent(e) {
+        const r = canvas.getBoundingClientRect();
+        return [
+          Math.floor((e.clientX - r.left) / SIZE),
+          Math.floor((e.clientY - r.top) / SIZE)
+        ];
+      }
+
+      canvas.addEventListener('click', (e) => {
+        const [x, y] = cellFromEvent(e);
+        const v = game.cell(x, y);
+        if (v >= 1 && v <= 8) game.chord(x, y);
+        else game.reveal(x, y);
+        sync();
+      });
+
+      canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const [x, y] = cellFromEvent(e);
+        game.toggle_flag(x, y);
+        sync();
+      });
+
+      let pressTimer = null,
+        longPressed = false;
+
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          longPressed = false;
+          const [x, y] = cellFromEvent(e.touches[0]);
+          pressTimer = setTimeout(() => {
+            longPressed = true;
+            game.toggle_flag(x, y);
+            if (navigator.vibrate) navigator.vibrate(30);
+            sync();
+          }, 400);
+        },
+        { passive: true }
+      );
+
+      canvas.addEventListener('touchend', (e) => {
+        clearTimeout(pressTimer);
+        if (longPressed) e.preventDefault();
+      });
+
+      canvas.addEventListener('touchmove', () => clearTimeout(pressTimer), {
+        passive: true
+      });
+
+      levelSel.addEventListener('change', newGame);
+      document.getElementById('restart').addEventListener('click', newGame);
+
+      try {
+        const saved = localStorage.getItem('ms-level');
+        if (saved && LEVELS[saved]) levelSel.value = saved;
+      } catch {}
+      newGame();
+    </script>
+  </body>
+</html>
