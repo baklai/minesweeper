@@ -1,4 +1,4 @@
-const CACHE = 'minesweeper-v3';
+const CACHE = 'minesweeper-v1';
 
 const ASSETS = [
   './',

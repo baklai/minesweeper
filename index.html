@@ -73,6 +73,9 @@
     <div id="status"></div>
 
     <script type="module">
+      if ('serviceWorker' in navigator)
+        navigator.serviceWorker.register('./sw.js');
+
       const sfx = (() => {
         let ctx = null,
           muted = false;
@@ -229,9 +232,6 @@
       });
 
       import init, { Minesweeper, GameStatus } from './pkg/minesweeper.js';
-
-      if ('serviceWorker' in navigator)
-        navigator.serviceWorker.register('./sw.js');
 
       await init();
 
