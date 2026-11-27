@@ -30,7 +30,7 @@ fn tone(freq: f32, secs: f32, vol: f32) -> Vec<f32> {
 fn explosion() -> Vec<f32> {
     let n = (SAMPLE_RATE as f32 * 0.9) as usize;
     let mut seed: u32 = 0x1234_5678;
-    let mut lp = 0.0f32;
+    let mut lp: f32 = 0.0f32;
     (0..n)
         .map(|i| {
             seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
@@ -49,13 +49,13 @@ fn samples_for(sfx: Sfx) -> Vec<f32> {
     match sfx {
         Sfx::Reveal => tone(900.0, 0.03, 0.25),
         Sfx::Flag => {
-            let mut v = tone(500.0, 0.05, 0.3);
+            let mut v: Vec<f32> = tone(500.0, 0.05, 0.3);
             v.extend(tone(700.0, 0.06, 0.3));
             v
         }
         Sfx::Explosion => explosion(),
         Sfx::Win => {
-            let mut v = Vec::new();
+            let mut v: Vec<f32> = Vec::new();
             for (f, d) in [
                 (523.25, 0.12),
                 (659.25, 0.12),
@@ -148,7 +148,7 @@ struct Rng(u64);
 
 impl Rng {
     fn new(seed: u32) -> Self {
-        let mut z = (seed as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z: u64 = (seed as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
         z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
         z ^= z >> 31;
@@ -156,7 +156,7 @@ impl Rng {
     }
 
     fn next_u64(&mut self) -> u64 {
-        let mut x = self.0;
+        let mut x: u64 = self.0;
         x ^= x >> 12;
         x ^= x << 25;
         x ^= x >> 27;
@@ -210,9 +210,9 @@ impl Minesweeper {
     }
 
     fn neighbors(&self, index: usize) -> Vec<usize> {
-        let x = (index % self.width) as isize;
-        let y = (index / self.width) as isize;
-        let mut result = Vec::with_capacity(8);
+        let x: isize = (index % self.width) as isize;
+        let y: isize = (index / self.width) as isize;
+        let mut result: Vec<usize> = Vec::with_capacity(8);
         for dy in -1..=1 {
             for dx in -1..=1 {
                 if dx == 0 && dy == 0 {
@@ -228,7 +228,7 @@ impl Minesweeper {
     }
 
     fn place_mines(&mut self, first: usize) {
-        let mut protected = vec![false; self.cells.len()];
+        let mut protected: Vec<bool> = vec![false; self.cells.len()];
         protected[first] = true;
         for n in self.neighbors(first) {
             protected[n] = true;
@@ -240,7 +240,7 @@ impl Minesweeper {
         }
 
         for k in 0..self.mines {
-            let j = k + self.rng.below(candidates.len() - k);
+            let j: usize = k + self.rng.below(candidates.len() - k);
             candidates.swap(k, j);
             self.cells[candidates[k]] |= MINE;
         }
@@ -281,8 +281,8 @@ impl Minesweeper {
             self.status = GameStatus::Lost;
             return 0;
         }
-        let mut opened = 0;
-        let mut stack = vec![index];
+        let mut opened: usize = 0;
+        let mut stack: Vec<usize> = vec![index];
         while let Some(i) = stack.pop() {
             if self.cells[i] & (REVEALED | FLAGGED) != 0 {
                 continue;
@@ -330,8 +330,8 @@ impl Minesweeper {
         if self.cells[i] & REVEALED == 0 || self.adjacent[i] == 0 {
             return 0;
         }
-        let neighbors = self.neighbors(i);
-        let flagged = neighbors
+        let neighbors: Vec<usize> = self.neighbors(i);
+        let flagged: usize = neighbors
             .iter()
             .filter(|&&n| self.cells[n] & FLAGGED != 0)
             .count();
@@ -339,7 +339,7 @@ impl Minesweeper {
             return 0;
         }
 
-        let mut opened = 0;
+        let mut opened: usize = 0;
         for n in neighbors {
             if self.cells[n] & (REVEALED | FLAGGED) == 0 {
                 opened += self.reveal_cell(n);
@@ -367,7 +367,7 @@ impl Minesweeper {
     }
 
     fn view(&self, i: usize) -> u8 {
-        let cell = self.cells[i];
+        let cell: u8 = self.cells[i];
         if self.status == GameStatus::Lost {
             if cell & EXPLODED != 0 {
                 return CELL_EXPLODED;
@@ -395,7 +395,7 @@ impl Minesweeper {
 
 fn rand_seed() -> u32 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let d = SystemTime::now()
+    let d: Duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
     d.subsec_nanos() ^ (d.as_secs() as u32)
@@ -416,7 +416,7 @@ fn cell_size_for(width: usize) -> f32 {
 }
 
 fn window_size_for(level: Level) -> egui::Vec2 {
-    let step = cell_size_for(level.width) + CELL_GAP;
+    let step: f32 = cell_size_for(level.width) + CELL_GAP;
     egui::vec2(
         level.width as f32 * step + CELL_GAP,
         level.height as f32 * step + CELL_GAP,
@@ -460,8 +460,8 @@ impl App {
     }
 
     fn act(&mut self, x: usize, y: usize, chord: bool) {
-        let before = self.game.status;
-        let opened = if chord {
+        let before: GameStatus = self.game.status;
+        let opened: usize = if chord {
             self.game.chord(x, y)
         } else {
             self.game.reveal(x, y)
@@ -476,7 +476,7 @@ impl App {
             }
         }
         if self.game.status == GameStatus::Won {
-            let best = &mut self.best[self.level_index];
+            let best: &mut Option<Duration> = &mut self.best[self.level_index];
             if best.is_none_or(|b| self.elapsed < b) {
                 *best = Some(self.elapsed);
             }
@@ -523,11 +523,11 @@ fn number_color(n: u8) -> egui::Color32 {
 }
 
 fn draw_flag(painter: &egui::Painter, rect: egui::Rect) {
-    let s = rect.width();
-    let c = rect.center();
-    let top = c.y - s * 0.28;
-    let bottom = c.y + s * 0.25;
-    let pole_x = c.x - s * 0.02;
+    let s: f32 = rect.width();
+    let c: egui::Pos2 = rect.center();
+    let top: f32 = c.y - s * 0.28;
+    let bottom: f32 = c.y + s * 0.25;
+    let pole_x: f32 = c.x - s * 0.02;
     painter.add(egui::Shape::convex_polygon(
         vec![
             egui::pos2(pole_x, top),
@@ -537,7 +537,7 @@ fn draw_flag(painter: &egui::Painter, rect: egui::Rect) {
         egui::Color32::from_rgb(220, 30, 30),
         egui::Stroke::NONE,
     ));
-    let black = egui::Stroke::new((s * 0.07).max(1.5), egui::Color32::BLACK);
+    let black: egui::Stroke = egui::Stroke::new((s * 0.07).max(1.5), egui::Color32::BLACK);
     painter.line_segment([egui::pos2(pole_x, top), egui::pos2(pole_x, bottom)], black);
     painter.line_segment(
         [
@@ -549,12 +549,12 @@ fn draw_flag(painter: &egui::Painter, rect: egui::Rect) {
 }
 
 fn draw_mine(painter: &egui::Painter, rect: egui::Rect) {
-    let s = rect.width();
-    let c = rect.center();
-    let r = s * 0.22;
-    let stroke = egui::Stroke::new((s * 0.07).max(1.5), egui::Color32::BLACK);
-    let spike = r * 1.6;
-    let d = spike * std::f32::consts::FRAC_1_SQRT_2;
+    let s: f32 = rect.width();
+    let c: egui::Pos2 = rect.center();
+    let r: f32 = s * 0.22;
+    let stroke: egui::Stroke = egui::Stroke::new((s * 0.07).max(1.5), egui::Color32::BLACK);
+    let spike: f32 = r * 1.6;
+    let d: f32 = spike * std::f32::consts::FRAC_1_SQRT_2;
     for (dx, dy) in [(spike, 0.0), (0.0, spike), (d, d), (d, -d)] {
         painter.line_segment(
             [
@@ -573,10 +573,11 @@ fn draw_mine(painter: &egui::Painter, rect: egui::Rect) {
 }
 
 fn draw_cross(painter: &egui::Painter, rect: egui::Rect) {
-    let s = rect.width();
-    let c = rect.center();
-    let k = s * 0.3;
-    let stroke = egui::Stroke::new((s * 0.09).max(2.0), egui::Color32::from_rgb(200, 0, 0));
+    let s: f32 = rect.width();
+    let c: egui::Pos2 = rect.center();
+    let k: f32 = s * 0.3;
+    let stroke: egui::Stroke =
+        egui::Stroke::new((s * 0.09).max(2.0), egui::Color32::from_rgb(200, 0, 0));
     painter.line_segment(
         [egui::pos2(c.x - k, c.y - k), egui::pos2(c.x + k, c.y + k)],
         stroke,
@@ -588,24 +589,13 @@ fn draw_cross(painter: &egui::Painter, rect: egui::Rect) {
 }
 
 fn draw_cell(painter: &egui::Painter, rect: egui::Rect, value: u8) {
-    let hidden = matches!(value, CELL_HIDDEN | CELL_FLAG);
-    let fill = match value {
+    let fill: egui::Color32 = match value {
         CELL_HIDDEN | CELL_FLAG => egui::Color32::from_gray(190),
         CELL_EXPLODED => egui::Color32::from_rgb(230, 80, 80),
         _ => egui::Color32::from_gray(222),
     };
-    painter.rect_filled(rect, 0.0, fill);
 
-    if hidden {
-        let w = 2.0;
-        let light = egui::Stroke::new(w, egui::Color32::WHITE);
-        let dark = egui::Stroke::new(w, egui::Color32::from_gray(110));
-        let (l, r, t, b) = (rect.left(), rect.right(), rect.top(), rect.bottom());
-        painter.line_segment([egui::pos2(l, t + 1.0), egui::pos2(r, t + 1.0)], light);
-        painter.line_segment([egui::pos2(l + 1.0, t), egui::pos2(l + 1.0, b)], light);
-        painter.line_segment([egui::pos2(l, b - 1.0), egui::pos2(r, b - 1.0)], dark);
-        painter.line_segment([egui::pos2(r - 1.0, t), egui::pos2(r - 1.0, b)], dark);
-    }
+    painter.rect_filled(rect, 0.0, fill);
 
     match value {
         1..=8 => {
@@ -642,8 +632,8 @@ enum Face {
 }
 
 fn draw_bevel(p: &egui::Painter, r: egui::Rect, raised: bool, w: f32) {
-    let white = egui::Color32::WHITE;
-    let dark = egui::Color32::from_gray(110);
+    let white: egui::Color32 = egui::Color32::WHITE;
+    let dark: egui::Color32 = egui::Color32::from_gray(110);
     let (tl, br) = if raised { (white, dark) } else { (dark, white) };
     p.rect_filled(
         egui::Rect::from_min_max(r.min, egui::pos2(r.max.x, r.min.y + w)),
@@ -668,14 +658,14 @@ fn draw_bevel(p: &egui::Painter, r: egui::Rect, raised: bool, w: f32) {
 }
 
 fn draw_digit(p: &egui::Painter, r: egui::Rect, d: u8) {
-    let mask = SEG_MASKS[d as usize];
-    let th = (r.width() * 0.22).max(2.0);
+    let mask: u8 = SEG_MASKS[d as usize];
+    let th: f32 = (r.width() * 0.22).max(2.0);
     let (l, rt, t, b) = (r.left(), r.right(), r.top(), r.bottom());
-    let my = (t + b) / 2.0;
+    let my: f32 = (t + b) / 2.0;
     let rect = |x0: f32, y0: f32, x1: f32, y1: f32| {
         egui::Rect::from_min_max(egui::pos2(x0, y0), egui::pos2(x1, y1))
     };
-    let segs = [
+    let segs: [egui::Rect; 7] = [
         rect(l + th, t, rt - th, t + th),
         rect(rt - th, t + th * 0.5, rt, my),
         rect(rt - th, my, rt, b - th * 0.5),
@@ -684,8 +674,8 @@ fn draw_digit(p: &egui::Painter, r: egui::Rect, d: u8) {
         rect(l, t + th * 0.5, l + th, my),
         rect(l + th, my - th * 0.5, rt - th, my + th * 0.5),
     ];
-    let on = egui::Color32::from_rgb(255, 0, 0);
-    let off = egui::Color32::from_rgb(45, 0, 0);
+    let on: egui::Color32 = egui::Color32::from_rgb(255, 0, 0);
+    let off: egui::Color32 = egui::Color32::from_rgb(45, 0, 0);
     for (i, s) in segs.iter().enumerate() {
         p.rect_filled(*s, 0.0, if mask & (1 << i) != 0 { on } else { off });
     }
@@ -701,8 +691,8 @@ fn draw_counter(p: &egui::Painter, rect: egui::Rect, value: i32) {
         let a = value.min(999);
         [(a / 100) as u8, ((a / 10) % 10) as u8, (a % 10) as u8]
     };
-    let inner = rect.shrink2(egui::vec2(4.0, 4.0));
-    let dw = inner.width() / 3.0;
+    let inner: egui::Rect = rect.shrink2(egui::vec2(4.0, 4.0));
+    let dw: f32 = inner.width() / 3.0;
     for (i, d) in digits.iter().enumerate() {
         let dr = egui::Rect::from_min_size(
             inner.min + egui::vec2(i as f32 * dw, 0.0),
@@ -725,15 +715,15 @@ fn draw_face(p: &egui::Painter, rect: egui::Rect, face: Face, pressed: bool) {
     } else {
         draw_bevel(p, rect, true, 2.0);
     }
-    let off = if pressed {
+    let off: egui::Vec2 = if pressed {
         egui::vec2(1.0, 1.0)
     } else {
         egui::Vec2::ZERO
     };
-    let c = rect.center() + off;
-    let r = rect.width() * 0.36;
-    let black = egui::Color32::BLACK;
-    let line = egui::Stroke::new((r * 0.1).max(1.0), black);
+    let c: egui::Pos2 = rect.center() + off;
+    let r: f32 = rect.width() * 0.36;
+    let black: egui::Color32 = egui::Color32::BLACK;
+    let line: egui::Stroke = egui::Stroke::new((r * 0.1).max(1.0), black);
 
     p.circle(
         c,
@@ -742,15 +732,15 @@ fn draw_face(p: &egui::Painter, rect: egui::Rect, face: Face, pressed: bool) {
         egui::Stroke::new(1.0, black),
     );
 
-    let eye_l = egui::pos2(c.x - r * 0.38, c.y - r * 0.22);
-    let eye_r = egui::pos2(c.x + r * 0.38, c.y - r * 0.22);
+    let eye_l: egui::Pos2 = egui::pos2(c.x - r * 0.38, c.y - r * 0.22);
+    let eye_r: egui::Pos2 = egui::pos2(c.x + r * 0.38, c.y - r * 0.22);
 
     let curve = |smile: bool| {
-        let mut pts = Vec::new();
+        let mut pts: Vec<egui::Pos2> = Vec::new();
         for k in -6..=6 {
-            let t = k as f32 / 6.0;
-            let bow = r * 0.3 * (1.0 - t * t);
-            let y = if smile {
+            let t: f32 = k as f32 / 6.0;
+            let bow: f32 = r * 0.3 * (1.0 - t * t);
+            let y: f32 = if smile {
                 c.y + r * 0.25 + bow
             } else {
                 c.y + r * 0.55 - bow
@@ -780,8 +770,8 @@ fn draw_face(p: &egui::Painter, rect: egui::Rect, face: Face, pressed: bool) {
             p.add(curve(false));
         }
         Face::Cool => {
-            let y0 = c.y - r * 0.42;
-            let y1 = c.y - r * 0.02;
+            let y0: f32 = c.y - r * 0.42;
+            let y1: f32 = c.y - r * 0.02;
             p.rect_filled(
                 egui::Rect::from_min_max(
                     egui::pos2(c.x - r * 0.75, y0),
@@ -826,7 +816,6 @@ impl eframe::App for App {
         }
 
         egui::CentralPanel::default().show(ui, |ui| {
-            // ---- Меню ----
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("Гра", |ui| {
                     if ui.button("Нова гра  (F2)").clicked() {
@@ -863,38 +852,41 @@ impl eframe::App for App {
                     ui.label("Перший хід завжди безпечний");
                 });
             });
+
             ui.separator();
 
             ui.add_space(2.0);
 
-            let cell_size = cell_size_for(self.game.width);
-            let gap = CELL_GAP;
-            let step = cell_size + gap;
+            let cell_size: f32 = cell_size_for(self.game.width);
+            let gap: f32 = CELL_GAP;
+            let step: f32 = cell_size + gap;
             let (w, h) = (self.game.width, self.game.height);
-            let total = egui::vec2(w as f32 * step + gap, h as f32 * step + gap);
+            let total: egui::Vec2 = egui::vec2(w as f32 * step + gap, h as f32 * step + gap);
 
             egui::ScrollArea::both().show(ui, |ui| {
                 let (hrect, _) =
                     ui.allocate_exact_size(egui::vec2(total.x, HEADER_H), egui::Sense::hover());
-                let hp = ui.painter_at(hrect);
-                hp.rect_filled(hrect, 0.0, egui::Color32::from_gray(192));
-                draw_bevel(&hp, hrect, false, 2.0);
 
-                let counter_size = egui::vec2(66.0, 36.0);
-                let left = egui::Rect::from_min_size(
+                let hp = ui.painter_at(hrect);
+
+                ui.separator();
+
+                let counter_size: egui::Vec2 = egui::vec2(66.0, 36.0);
+                let left: egui::Rect = egui::Rect::from_min_size(
                     egui::pos2(hrect.left() + 8.0, hrect.center().y - counter_size.y / 2.0),
                     counter_size,
                 );
-                let right = egui::Rect::from_min_size(
+                let right: egui::Rect = egui::Rect::from_min_size(
                     egui::pos2(hrect.right() - 8.0 - counter_size.x, left.top()),
                     counter_size,
                 );
+
                 draw_counter(&hp, left, self.game.mines_left() as i32);
                 draw_counter(&hp, right, self.current_elapsed().as_secs().min(999) as i32);
 
-                let face_rect =
+                let face_rect: egui::Rect =
                     egui::Rect::from_center_size(hrect.center(), egui::vec2(38.0, 38.0));
-                let face_resp = ui.interact(
+                let face_resp: egui::Response = ui.interact(
                     face_rect,
                     ui.make_persistent_id("face_button"),
                     egui::Sense::click(),
@@ -905,40 +897,43 @@ impl eframe::App for App {
                     _ if self.field_pressed => Face::Surprised,
                     _ => Face::Smile,
                 };
+
                 draw_face(&hp, face_rect, face, face_resp.is_pointer_button_down_on());
+
                 if face_resp.clicked() {
                     self.new_game();
                 }
-                ui.add_space(4.0);
+
+                ui.add_space(2.0);
 
                 let (rect, response) = ui.allocate_exact_size(total, egui::Sense::click());
                 self.field_pressed = response.is_pointer_button_down_on() && self.game.active();
-                let painter = ui.painter_at(rect);
+                let painter: egui::Painter = ui.painter_at(rect);
                 painter.rect_filled(rect, 0.0, egui::Color32::from_gray(120));
 
-                let origin = rect.min + egui::vec2(gap, gap);
+                let origin: egui::Pos2 = rect.min + egui::vec2(gap, gap);
                 for y in 0..h {
                     for x in 0..w {
-                        let min = origin + egui::vec2(x as f32 * step, y as f32 * step);
+                        let min: egui::Pos2 = origin + egui::vec2(x as f32 * step, y as f32 * step);
                         let cell_rect =
                             egui::Rect::from_min_size(min, egui::vec2(cell_size, cell_size));
                         draw_cell(&painter, cell_rect, self.game.view(y * w + x));
                     }
                 }
 
-                let clicked = response.clicked();
-                let secondary = response.secondary_clicked();
+                let clicked: bool = response.clicked();
+                let secondary: bool = response.secondary_clicked();
                 if clicked || secondary {
                     if let Some(pos) = response.interact_pointer_pos() {
-                        let rel = pos - origin;
+                        let rel: egui::Vec2 = pos - origin;
                         if rel.x >= 0.0 && rel.y >= 0.0 {
-                            let x = (rel.x / step) as usize;
-                            let y = (rel.y / step) as usize;
+                            let x: usize = (rel.x / step) as usize;
+                            let y: usize = (rel.y / step) as usize;
                             if x < w && y < h {
                                 if secondary {
                                     self.flag(x, y);
                                 } else {
-                                    let value = self.game.view(y * w + x);
+                                    let value: u8 = self.game.view(y * w + x);
                                     if (1..=8).contains(&value) {
                                         self.act(x, y, true);
                                     } else {
@@ -955,8 +950,9 @@ impl eframe::App for App {
 }
 
 fn main() -> eframe::Result<()> {
-    let icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon-256.png"))
-        .expect("failed to read the icon");
+    let icon: egui::IconData =
+        eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon-256.png"))
+            .expect("failed to read the icon");
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -965,9 +961,9 @@ fn main() -> eframe::Result<()> {
             .with_maximize_button(false)
             .with_title("Сапер")
             .with_icon(icon),
-
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
+
     eframe::run_native("Сапер", options, Box::new(|_cc| Ok(Box::<App>::default())))
 }
