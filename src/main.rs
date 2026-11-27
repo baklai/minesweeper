@@ -403,7 +403,8 @@ fn rand_seed() -> u32 {
 
 const CELL_GAP: f32 = 1.0;
 
-const WINDOW_EXTRA: egui::Vec2 = egui::vec2(24.0, 120.0);
+// Ширина = внутренние отступы CentralPanel (2 * 8 px), высота — меню, шапка и т. д.
+const WINDOW_EXTRA: egui::Vec2 = egui::vec2(16.0, 120.0);
 
 fn cell_size_for(width: usize) -> f32 {
     if width >= 30 {
@@ -864,86 +865,100 @@ impl eframe::App for App {
             let total: egui::Vec2 = egui::vec2(w as f32 * step + gap, h as f32 * step + gap);
 
             egui::ScrollArea::both().show(ui, |ui| {
-                let (hrect, _) =
-                    ui.allocate_exact_size(egui::vec2(total.x, HEADER_H), egui::Sense::hover());
+                // Центрируем игровую область по горизонтали, чтобы отступы слева и справа были равны.
+                let side: f32 = ((ui.available_width() - total.x) / 2.0).max(0.0);
+                ui.horizontal_top(|ui| {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    ui.add_space(side);
+                    ui.vertical(|ui| {
+                        let (hrect, _) = ui.allocate_exact_size(
+                            egui::vec2(total.x, HEADER_H),
+                            egui::Sense::hover(),
+                        );
 
-                let hp = ui.painter_at(hrect);
+                        let hp = ui.painter_at(hrect);
 
-                ui.separator();
+                        ui.separator();
 
-                let counter_size: egui::Vec2 = egui::vec2(66.0, 36.0);
-                let left: egui::Rect = egui::Rect::from_min_size(
-                    egui::pos2(hrect.left() + 8.0, hrect.center().y - counter_size.y / 2.0),
-                    counter_size,
-                );
-                let right: egui::Rect = egui::Rect::from_min_size(
-                    egui::pos2(hrect.right() - 8.0 - counter_size.x, left.top()),
-                    counter_size,
-                );
+                        let counter_size: egui::Vec2 = egui::vec2(66.0, 36.0);
+                        let left: egui::Rect = egui::Rect::from_min_size(
+                            egui::pos2(hrect.left() + 8.0, hrect.center().y - counter_size.y / 2.0),
+                            counter_size,
+                        );
+                        let right: egui::Rect = egui::Rect::from_min_size(
+                            egui::pos2(hrect.right() - 8.0 - counter_size.x, left.top()),
+                            counter_size,
+                        );
 
-                draw_counter(&hp, left, self.game.mines_left() as i32);
-                draw_counter(&hp, right, self.current_elapsed().as_secs().min(999) as i32);
+                        draw_counter(&hp, left, self.game.mines_left() as i32);
+                        draw_counter(&hp, right, self.current_elapsed().as_secs().min(999) as i32);
 
-                let face_rect: egui::Rect =
-                    egui::Rect::from_center_size(hrect.center(), egui::vec2(38.0, 38.0));
-                let face_resp: egui::Response = ui.interact(
-                    face_rect,
-                    ui.make_persistent_id("face_button"),
-                    egui::Sense::click(),
-                );
-                let face = match self.game.status {
-                    GameStatus::Lost => Face::Dead,
-                    GameStatus::Won => Face::Cool,
-                    _ if self.field_pressed => Face::Surprised,
-                    _ => Face::Smile,
-                };
+                        let face_rect: egui::Rect =
+                            egui::Rect::from_center_size(hrect.center(), egui::vec2(38.0, 38.0));
+                        let face_resp: egui::Response = ui.interact(
+                            face_rect,
+                            ui.make_persistent_id("face_button"),
+                            egui::Sense::click(),
+                        );
+                        let face = match self.game.status {
+                            GameStatus::Lost => Face::Dead,
+                            GameStatus::Won => Face::Cool,
+                            _ if self.field_pressed => Face::Surprised,
+                            _ => Face::Smile,
+                        };
 
-                draw_face(&hp, face_rect, face, face_resp.is_pointer_button_down_on());
+                        draw_face(&hp, face_rect, face, face_resp.is_pointer_button_down_on());
 
-                if face_resp.clicked() {
-                    self.new_game();
-                }
+                        if face_resp.clicked() {
+                            self.new_game();
+                        }
 
-                ui.add_space(2.0);
+                        ui.add_space(2.0);
 
-                let (rect, response) = ui.allocate_exact_size(total, egui::Sense::click());
-                self.field_pressed = response.is_pointer_button_down_on() && self.game.active();
-                let painter: egui::Painter = ui.painter_at(rect);
-                painter.rect_filled(rect, 0.0, egui::Color32::from_gray(120));
+                        let (rect, response) = ui.allocate_exact_size(total, egui::Sense::click());
+                        self.field_pressed =
+                            response.is_pointer_button_down_on() && self.game.active();
+                        let painter: egui::Painter = ui.painter_at(rect);
+                        painter.rect_filled(rect, 0.0, egui::Color32::from_gray(120));
 
-                let origin: egui::Pos2 = rect.min + egui::vec2(gap, gap);
-                for y in 0..h {
-                    for x in 0..w {
-                        let min: egui::Pos2 = origin + egui::vec2(x as f32 * step, y as f32 * step);
-                        let cell_rect =
-                            egui::Rect::from_min_size(min, egui::vec2(cell_size, cell_size));
-                        draw_cell(&painter, cell_rect, self.game.view(y * w + x));
-                    }
-                }
+                        let origin: egui::Pos2 = rect.min + egui::vec2(gap, gap);
+                        for y in 0..h {
+                            for x in 0..w {
+                                let min: egui::Pos2 =
+                                    origin + egui::vec2(x as f32 * step, y as f32 * step);
+                                let cell_rect: egui::Rect = egui::Rect::from_min_size(
+                                    min,
+                                    egui::vec2(cell_size, cell_size),
+                                );
+                                draw_cell(&painter, cell_rect, self.game.view(y * w + x));
+                            }
+                        }
 
-                let clicked: bool = response.clicked();
-                let secondary: bool = response.secondary_clicked();
-                if clicked || secondary {
-                    if let Some(pos) = response.interact_pointer_pos() {
-                        let rel: egui::Vec2 = pos - origin;
-                        if rel.x >= 0.0 && rel.y >= 0.0 {
-                            let x: usize = (rel.x / step) as usize;
-                            let y: usize = (rel.y / step) as usize;
-                            if x < w && y < h {
-                                if secondary {
-                                    self.flag(x, y);
-                                } else {
-                                    let value: u8 = self.game.view(y * w + x);
-                                    if (1..=8).contains(&value) {
-                                        self.act(x, y, true);
-                                    } else {
-                                        self.act(x, y, false);
+                        let clicked: bool = response.clicked();
+                        let secondary: bool = response.secondary_clicked();
+                        if clicked || secondary {
+                            if let Some(pos) = response.interact_pointer_pos() {
+                                let rel: egui::Vec2 = pos - origin;
+                                if rel.x >= 0.0 && rel.y >= 0.0 {
+                                    let x: usize = (rel.x / step) as usize;
+                                    let y: usize = (rel.y / step) as usize;
+                                    if x < w && y < h {
+                                        if secondary {
+                                            self.flag(x, y);
+                                        } else {
+                                            let value: u8 = self.game.view(y * w + x);
+                                            if (1..=8).contains(&value) {
+                                                self.act(x, y, true);
+                                            } else {
+                                                self.act(x, y, false);
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                }
+                    });
+                });
             });
         });
     }
@@ -954,7 +969,7 @@ fn main() -> eframe::Result<()> {
         eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon-256.png"))
             .expect("failed to read the icon");
 
-    let options = eframe::NativeOptions {
+    let options: eframe::NativeOptions = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size(window_size_for(LEVELS[0]))
             .with_resizable(false)
