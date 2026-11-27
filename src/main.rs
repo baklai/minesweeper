@@ -401,10 +401,77 @@ fn rand_seed() -> u32 {
     d.subsec_nanos() ^ (d.as_secs() as u32)
 }
 
+// ---------------------------------------------------------------------------
+// Цветовая палитра (светлая / тёмная тема)
+// ---------------------------------------------------------------------------
+
+struct Palette {
+    hidden: egui::Color32,
+    revealed: egui::Color32,
+    exploded: egui::Color32,
+    grid: egui::Color32,
+    ink: egui::Color32,
+    mine_shine: egui::Color32,
+    bevel_light: egui::Color32,
+    bevel_dark: egui::Color32,
+    button: egui::Color32,
+    numbers: [egui::Color32; 8],
+}
+
+impl Palette {
+    fn new(dark: bool) -> Self {
+        use egui::Color32 as C;
+        if dark {
+            Self {
+                hidden: C::from_gray(80),
+                revealed: C::from_gray(38),
+                exploded: C::from_rgb(170, 40, 40),
+                grid: C::from_gray(18),
+                ink: C::from_gray(235),
+                mine_shine: C::from_gray(40),
+                bevel_light: C::from_gray(130),
+                bevel_dark: C::from_gray(15),
+                button: C::from_gray(80),
+                numbers: [
+                    C::from_rgb(90, 150, 255),
+                    C::from_rgb(80, 200, 80),
+                    C::from_rgb(255, 90, 90),
+                    C::from_rgb(150, 150, 255),
+                    C::from_rgb(220, 120, 100),
+                    C::from_rgb(60, 200, 200),
+                    C::from_gray(230),
+                    C::from_gray(170),
+                ],
+            }
+        } else {
+            Self {
+                hidden: C::from_gray(190),
+                revealed: C::from_gray(222),
+                exploded: C::from_rgb(230, 80, 80),
+                grid: C::from_gray(120),
+                ink: C::BLACK,
+                mine_shine: C::WHITE,
+                bevel_light: C::WHITE,
+                bevel_dark: C::from_gray(110),
+                button: C::from_gray(192),
+                numbers: [
+                    C::from_rgb(0, 0, 255),
+                    C::from_rgb(0, 128, 0),
+                    C::from_rgb(255, 0, 0),
+                    C::from_rgb(0, 0, 128),
+                    C::from_rgb(128, 0, 0),
+                    C::from_rgb(0, 128, 128),
+                    C::BLACK,
+                    C::from_gray(90),
+                ],
+            }
+        }
+    }
+}
+
 const CELL_GAP: f32 = 1.0;
 
-// Ширина = внутренние отступы CentralPanel (2 * 8 px), высота — меню, шапка и т. д.
-const WINDOW_EXTRA: egui::Vec2 = egui::vec2(16.0, 120.0);
+const WINDOW_EXTRA: egui::Vec2 = egui::vec2(16.0, 112.0);
 
 fn cell_size_for(width: usize) -> f32 {
     if width >= 30 {
@@ -510,20 +577,7 @@ impl App {
     }
 }
 
-fn number_color(n: u8) -> egui::Color32 {
-    match n {
-        1 => egui::Color32::from_rgb(0, 0, 255),
-        2 => egui::Color32::from_rgb(0, 128, 0),
-        3 => egui::Color32::from_rgb(255, 0, 0),
-        4 => egui::Color32::from_rgb(0, 0, 128),
-        5 => egui::Color32::from_rgb(128, 0, 0),
-        6 => egui::Color32::from_rgb(0, 128, 128),
-        7 => egui::Color32::BLACK,
-        _ => egui::Color32::from_gray(90),
-    }
-}
-
-fn draw_flag(painter: &egui::Painter, rect: egui::Rect) {
+fn draw_flag(painter: &egui::Painter, rect: egui::Rect, pal: &Palette) {
     let s: f32 = rect.width();
     let c: egui::Pos2 = rect.center();
     let top: f32 = c.y - s * 0.28;
@@ -538,22 +592,22 @@ fn draw_flag(painter: &egui::Painter, rect: egui::Rect) {
         egui::Color32::from_rgb(220, 30, 30),
         egui::Stroke::NONE,
     ));
-    let black: egui::Stroke = egui::Stroke::new((s * 0.07).max(1.5), egui::Color32::BLACK);
-    painter.line_segment([egui::pos2(pole_x, top), egui::pos2(pole_x, bottom)], black);
+    let ink: egui::Stroke = egui::Stroke::new((s * 0.07).max(1.5), pal.ink);
+    painter.line_segment([egui::pos2(pole_x, top), egui::pos2(pole_x, bottom)], ink);
     painter.line_segment(
         [
             egui::pos2(c.x - s * 0.2, bottom),
             egui::pos2(c.x + s * 0.2, bottom),
         ],
-        black,
+        ink,
     );
 }
 
-fn draw_mine(painter: &egui::Painter, rect: egui::Rect) {
+fn draw_mine(painter: &egui::Painter, rect: egui::Rect, pal: &Palette) {
     let s: f32 = rect.width();
     let c: egui::Pos2 = rect.center();
     let r: f32 = s * 0.22;
-    let stroke: egui::Stroke = egui::Stroke::new((s * 0.07).max(1.5), egui::Color32::BLACK);
+    let stroke: egui::Stroke = egui::Stroke::new((s * 0.07).max(1.5), pal.ink);
     let spike: f32 = r * 1.6;
     let d: f32 = spike * std::f32::consts::FRAC_1_SQRT_2;
     for (dx, dy) in [(spike, 0.0), (0.0, spike), (d, d), (d, -d)] {
@@ -565,11 +619,11 @@ fn draw_mine(painter: &egui::Painter, rect: egui::Rect) {
             stroke,
         );
     }
-    painter.circle_filled(c, r, egui::Color32::BLACK);
+    painter.circle_filled(c, r, pal.ink);
     painter.circle_filled(
         egui::pos2(c.x - r * 0.35, c.y - r * 0.35),
         r * 0.3,
-        egui::Color32::WHITE,
+        pal.mine_shine,
     );
 }
 
@@ -589,11 +643,11 @@ fn draw_cross(painter: &egui::Painter, rect: egui::Rect) {
     );
 }
 
-fn draw_cell(painter: &egui::Painter, rect: egui::Rect, value: u8) {
+fn draw_cell(painter: &egui::Painter, rect: egui::Rect, value: u8, pal: &Palette) {
     let fill: egui::Color32 = match value {
-        CELL_HIDDEN | CELL_FLAG => egui::Color32::from_gray(190),
-        CELL_EXPLODED => egui::Color32::from_rgb(230, 80, 80),
-        _ => egui::Color32::from_gray(222),
+        CELL_HIDDEN | CELL_FLAG => pal.hidden,
+        CELL_EXPLODED => pal.exploded,
+        _ => pal.revealed,
     };
 
     painter.rect_filled(rect, 0.0, fill);
@@ -605,20 +659,20 @@ fn draw_cell(painter: &egui::Painter, rect: egui::Rect, value: u8) {
                 egui::Align2::CENTER_CENTER,
                 value.to_string(),
                 egui::FontId::monospace(rect.height() * 0.65),
-                number_color(value),
+                pal.numbers[value as usize - 1],
             );
         }
-        CELL_FLAG => draw_flag(painter, rect),
-        CELL_MINE | CELL_EXPLODED => draw_mine(painter, rect),
+        CELL_FLAG => draw_flag(painter, rect, pal),
+        CELL_MINE | CELL_EXPLODED => draw_mine(painter, rect, pal),
         CELL_WRONG_FLAG => {
-            draw_flag(painter, rect);
+            draw_flag(painter, rect, pal);
             draw_cross(painter, rect);
         }
         _ => {}
     }
 }
 
-const HEADER_H: f32 = 52.0;
+const HEADER_H: f32 = 44.0;
 
 const SEG_MASKS: [u8; 11] = [
     0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F, 0x40,
@@ -632,10 +686,10 @@ enum Face {
     Cool,
 }
 
-fn draw_bevel(p: &egui::Painter, r: egui::Rect, raised: bool, w: f32) {
-    let white: egui::Color32 = egui::Color32::WHITE;
-    let dark: egui::Color32 = egui::Color32::from_gray(110);
-    let (tl, br) = if raised { (white, dark) } else { (dark, white) };
+fn draw_bevel(p: &egui::Painter, r: egui::Rect, raised: bool, w: f32, pal: &Palette) {
+    let light: egui::Color32 = pal.bevel_light;
+    let dark: egui::Color32 = pal.bevel_dark;
+    let (tl, br) = if raised { (light, dark) } else { (dark, light) };
     p.rect_filled(
         egui::Rect::from_min_max(r.min, egui::pos2(r.max.x, r.min.y + w)),
         0.0,
@@ -682,9 +736,9 @@ fn draw_digit(p: &egui::Painter, r: egui::Rect, d: u8) {
     }
 }
 
-fn draw_counter(p: &egui::Painter, rect: egui::Rect, value: i32) {
+fn draw_counter(p: &egui::Painter, rect: egui::Rect, value: i32, pal: &Palette) {
     p.rect_filled(rect, 0.0, egui::Color32::BLACK);
-    draw_bevel(p, rect, false, 2.0);
+    draw_bevel(p, rect, false, 2.0, pal);
     let digits: [u8; 3] = if value < 0 {
         let a = (-value).min(99);
         [10, (a / 10) as u8, (a % 10) as u8]
@@ -704,17 +758,17 @@ fn draw_counter(p: &egui::Painter, rect: egui::Rect, value: i32) {
     }
 }
 
-fn draw_face(p: &egui::Painter, rect: egui::Rect, face: Face, pressed: bool) {
-    p.rect_filled(rect, 0.0, egui::Color32::from_gray(192));
+fn draw_face(p: &egui::Painter, rect: egui::Rect, face: Face, pressed: bool, pal: &Palette) {
+    p.rect_filled(rect, 0.0, pal.button);
     if pressed {
         p.rect_stroke(
             rect,
             0.0,
-            egui::Stroke::new(1.0, egui::Color32::from_gray(110)),
+            egui::Stroke::new(1.0, pal.bevel_dark),
             egui::StrokeKind::Inside,
         );
     } else {
-        draw_bevel(p, rect, true, 2.0);
+        draw_bevel(p, rect, true, 2.0, pal);
     }
     let off: egui::Vec2 = if pressed {
         egui::vec2(1.0, 1.0)
@@ -803,6 +857,8 @@ fn draw_face(p: &egui::Painter, rect: egui::Rect, face: Face, pressed: bool) {
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let pal: Palette = Palette::new(ui.visuals().dark_mode);
+
         if self.started.is_some() {
             ui.ctx().request_repaint_after(Duration::from_millis(100));
         }
@@ -865,7 +921,6 @@ impl eframe::App for App {
             let total: egui::Vec2 = egui::vec2(w as f32 * step + gap, h as f32 * step + gap);
 
             egui::ScrollArea::both().show(ui, |ui| {
-                // Центрируем игровую область по горизонтали, чтобы отступы слева и справа были равны.
                 let side: f32 = ((ui.available_width() - total.x) / 2.0).max(0.0);
                 ui.horizontal_top(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
@@ -890,8 +945,13 @@ impl eframe::App for App {
                             counter_size,
                         );
 
-                        draw_counter(&hp, left, self.game.mines_left() as i32);
-                        draw_counter(&hp, right, self.current_elapsed().as_secs().min(999) as i32);
+                        draw_counter(&hp, left, self.game.mines_left() as i32, &pal);
+                        draw_counter(
+                            &hp,
+                            right,
+                            self.current_elapsed().as_secs().min(999) as i32,
+                            &pal,
+                        );
 
                         let face_rect: egui::Rect =
                             egui::Rect::from_center_size(hrect.center(), egui::vec2(38.0, 38.0));
@@ -907,7 +967,13 @@ impl eframe::App for App {
                             _ => Face::Smile,
                         };
 
-                        draw_face(&hp, face_rect, face, face_resp.is_pointer_button_down_on());
+                        draw_face(
+                            &hp,
+                            face_rect,
+                            face,
+                            face_resp.is_pointer_button_down_on(),
+                            &pal,
+                        );
 
                         if face_resp.clicked() {
                             self.new_game();
@@ -919,7 +985,7 @@ impl eframe::App for App {
                         self.field_pressed =
                             response.is_pointer_button_down_on() && self.game.active();
                         let painter: egui::Painter = ui.painter_at(rect);
-                        painter.rect_filled(rect, 0.0, egui::Color32::from_gray(120));
+                        painter.rect_filled(rect, 0.0, pal.grid);
 
                         let origin: egui::Pos2 = rect.min + egui::vec2(gap, gap);
                         for y in 0..h {
@@ -930,7 +996,7 @@ impl eframe::App for App {
                                     min,
                                     egui::vec2(cell_size, cell_size),
                                 );
-                                draw_cell(&painter, cell_rect, self.game.view(y * w + x));
+                                draw_cell(&painter, cell_rect, self.game.view(y * w + x), &pal);
                             }
                         }
 
@@ -980,5 +1046,12 @@ fn main() -> eframe::Result<()> {
         ..Default::default()
     };
 
-    eframe::run_native("Сапер", options, Box::new(|_cc| Ok(Box::<App>::default())))
+    eframe::run_native(
+        "Сапер",
+        options,
+        Box::new(|cc| {
+            cc.egui_ctx.set_theme(egui::ThemePreference::System);
+            Ok(Box::<App>::default())
+        }),
+    )
 }
