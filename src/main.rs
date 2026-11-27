@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use eframe::egui;
 use rodio::{OutputStream, OutputStreamHandle, Sink, buffer::SamplesBuffer};
 use std::f32::consts::TAU;
